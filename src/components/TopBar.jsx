@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useApp } from '../context/AppContext.jsx'
 import { getTotalValidHours } from '../utils/calculations.js'
 
@@ -28,14 +27,7 @@ function SyncBadge({ status }) {
 }
 
 export default function TopBar() {
-  const { runs, logFilename, manifestFilename, refresh, syncStatus } = useApp()
-  const [refreshing, setRefreshing] = useState(false)
-
-  async function handleRefresh() {
-    setRefreshing(true)
-    await refresh()
-    setRefreshing(false)
-  }
+  const { runs, logFilename, manifestFilename, syncStatus } = useApp()
 
   const campaignHours = runs ? getTotalValidHours(runs).toFixed(1) : null
   const activeFile = manifestFilename || logFilename
@@ -66,14 +58,6 @@ export default function TopBar() {
       </div>
 
       <SyncBadge status={syncStatus} />
-
-      <button
-        onClick={handleRefresh}
-        disabled={refreshing}
-        className="text-sm px-3 py-1.5 border border-border text-text-secondary hover:border-accent hover:text-accent transition-colors disabled:opacity-50 shrink-0"
-      >
-        {refreshing ? '↻ refreshing…' : '↻ refresh'}
-      </button>
     </header>
   )
 }

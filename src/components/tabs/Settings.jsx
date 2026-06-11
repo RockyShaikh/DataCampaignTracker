@@ -125,84 +125,6 @@ function fmt(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
     ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
-function fmtBytes(b) {
-  return b >= 1024 ? `${(b / 1024).toFixed(1)} KB` : `${b} B`;
-}
-
-function FileUploader({ label, description, endpoint, activeFilename, fileType, refresh }) {
-  const inputRef = useRef(null);
-  const [status, setStatus] = useState(null);
-  const [errMsg, setErrMsg] = useState('');
-  const [log, setLog] = useState([]);
-
-  const loadLog = useCallback(() => {
-    fetch('/api/upload-log')
-      .then(r => r.json())
-      .then(entries => setLog(entries.filter(e => e.fileType === fileType)))
-      .catch(() => {});
-  }, [fileType]);
-
-  useEffect(() => { loadLog(); }, [loadLog]);
-
-  async function handleFile(e) {
-    const file = e.target.files[0];
-    e.target.value = '';
-    if (!file) return;
-    setStatus('uploading');
-    setErrMsg('');
-    try {
-      const content = await file.text();
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, content }),
-      });
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      setStatus('ok');
-      loadLog();
-      refresh();
-    } catch (err) {
-      setStatus('error');
-      setErrMsg(err.message);
-    }
-  }
-
-  return (
-    <div className="bg-white border border-border rounded-xl p-4 flex-1 min-w-[260px]">
-      <h3 className="font-ui font-semibold text-text-primary text-sm mb-1">{label}</h3>
-      <p className="text-xs font-mono text-text-secondary mb-3">{description}</p>
-      <div className="flex items-center gap-3 flex-wrap">
-        {activeFilename && (
-          <span className="text-xs font-mono text-text-secondary">
-            Active: <span className="text-text-primary">{activeFilename}</span>
-          </span>
-        )}
-        <button
-          onClick={() => { setStatus(null); inputRef.current?.click(); }}
-          disabled={status === 'uploading'}
-          className="text-xs font-ui px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors disabled:opacity-50"
-        >
-          {status === 'uploading' ? 'Uploading…' : '↑ Upload'}
-        </button>
-        <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
-        {status === 'ok' && <span className="text-xs font-mono text-green-600">Done — refreshed</span>}
-        {status === 'error' && <span className="text-xs font-mono text-danger">{errMsg}</span>}
-      </div>
-      {log.length > 0 && (
-        <div className="mt-3 space-y-1">
-          {[...log].reverse().slice(0, 5).map((entry, i) => (
-            <div key={i} className="flex items-center gap-3 text-xs font-mono">
-              <span className="text-text-secondary w-32 shrink-0">{fmt(entry.uploadedAt)}</span>
-              <span className="text-text-primary truncate">{entry.filename}</span>
-              <span className="text-text-secondary shrink-0">{fmtBytes(entry.bytes)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function BackupsCard() {
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -254,7 +176,7 @@ function BackupsCard() {
 }
 
 export default function Settings() {
-  const { registry, setRegistry, appSettings, setAppSettings, logFilename, manifestFilename, refresh } = useApp();
+  const { registry, setRegistry, appSettings, setAppSettings } = useApp();
   const [showNewForm, setShowNewForm] = useState(false);
   const [newB, setNewB] = useState({ id: '', name: '', aliases: [], floors: [], lat: 40.4433, lng: -79.9436 });
   const uploadRef = useRef(null);
@@ -295,24 +217,13 @@ export default function Settings() {
   return (
     <div className="p-5 max-w-[900px] mx-auto space-y-6">
 
-      {/* Data uploads */}
-      <div className="flex gap-4 flex-wrap">
-        <FileUploader
-          label="Input Log"
-          description="User-entered collection log (collection / processing pass/fail)"
-          endpoint="/api/log-csv"
-          activeFilename={logFilename}
-          fileType="log"
-          refresh={refresh}
-        />
-        <FileUploader
-          label="Data Manifest"
-          description="Auto-generated manifest with exact trace durations (seconds)"
-          endpoint="/api/manifest-csv"
-          activeFilename={manifestFilename}
-          fileType="manifest"
-          refresh={refresh}
-        />
+      {/* Data sync info */}
+      <div className="bg-white border border-border rounded-xl p-4">
+        <h3 className="font-ui font-semibold text-text-primary text-sm mb-1">Data Source</h3>
+        <p className="text-xs font-mono text-text-secondary">
+          Log &amp; manifest sync automatically from the Google Sheet every few minutes.
+          See the sync status in the top bar — no manual upload needed.
+        </p>
       </div>
 
       {/* Backups */}
