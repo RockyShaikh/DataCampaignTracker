@@ -1,0 +1,3 @@
+# Live website-side state IS tracked in git (per-session history).
+# Only ignore Windows alternate-data-stream junk files.
+*:Zone.Identifier

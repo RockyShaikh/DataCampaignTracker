@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #F7F7F7;
+  color: #111111;
+  font-family: 'Fira Sans', system-ui, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  font-size: 15px;
+}
+
+/* Strip all border-radius from elements that use Tailwind rounded-xl / rounded-lg.
+   Academic tools use rectangles. */
+.rounded-xl { border-radius: 3px !important; }
+.rounded-lg { border-radius: 3px !important; }
+.rounded-full { border-radius: 3px !important; }
+
+/* Exception: spinner stays round */
+.animate-spin { border-radius: 50% !important; }
+
+/* Keep small pill badges slightly rounded */
+.rounded-full.text-xs { border-radius: 2px !important; }
+
+/* Leaflet */
+.leaflet-container { background: #e8e8e8; }
+
+.leaflet-popup-content-wrapper {
+  background: #ffffff;
+  border: 1px solid #C0C0C0;
+  border-radius: 2px !important;
+  box-shadow: none;
+  padding: 0;
+}
+.leaflet-popup-content { margin: 0; }
+.leaflet-popup-tip { background: #ffffff; }
+
+.custom-pie-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #F7F7F7; }
+::-webkit-scrollbar-thumb { background: #C8C8C8; border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: #999; }
+
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Progress bars: square ends */
+.rounded-full[style*="width"] { border-radius: 0 !important; }
+
+/* Tables feel more academic with clear lines */
+table { border-collapse: collapse; }
