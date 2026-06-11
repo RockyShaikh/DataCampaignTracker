@@ -20,10 +20,10 @@ export function getTotalValidHours(runs) {
   return (getValidRuns(runs).reduce((s, r) => s + r.duration, 0) * HAIRCUT) / 60;
 }
 
-// Incomplete = a real trace that hasn't been processed yet (and isn't failed).
-// Shown separately as "pending"; NOT counted in the campaign total.
+// Pending = logged in the collection log but not yet processed into the manifest
+// (no trace yet, not failed). Shown separately; NOT in the campaign total.
 export function getIncompleteRuns(runs) {
-  return runs.filter(r => r.source !== 'log' && !r.isProcessed && !r.isFailed);
+  return runs.filter(r => r.source === 'log' && !r.isFailed);
 }
 
 export function getIncompleteHours(runs) {

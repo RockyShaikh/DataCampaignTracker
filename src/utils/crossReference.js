@@ -45,10 +45,11 @@ export function crossReference(manifestRuns, logRuns) {
 
     const col = (mRun.collection || '').toLowerCase().trim();
     const proc = (mRun.processing || '').toLowerCase().trim();
-    // Three-state campaign model (see csvParser.classify):
-    mRun.isProcessed = mRun.hasLogEntry && proc !== '';
+    // Presence in the manifest === the trace was processed. So a manifest trace
+    // counts toward the campaign total UNLESS it's explicitly marked failed.
+    mRun.isProcessed = true;
     mRun.isFailed = col === 'fail' || proc === 'fail';
-    mRun.isValid = mRun.isProcessed && !mRun.isFailed;   // counts toward campaign total
+    mRun.isValid = !mRun.isFailed;                       // counts toward campaign total
     mRun.isClean = col === 'pass' && proc === 'pass';
   }
 
