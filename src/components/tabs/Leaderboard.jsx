@@ -52,7 +52,7 @@ export default function Leaderboard() {
       </div>
 
       <p className="text-sm italic text-text-secondary">
-        Raw hours: every minute logged walking and collecting, regardless of pass/fail or processing status.
+        Processed hours from the manifest (exact trace durations). Sums to the campaign total.
       </p>
     </div>
   );

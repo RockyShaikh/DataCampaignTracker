@@ -247,12 +247,12 @@ export function getGrowthRate(runs) {
   return { thisWeekHours, lastWeekHours, delta, pct };
 }
 
-// Leaderboard = RAW hours per person: every minute someone spent walking and
-// collecting, regardless of pass/fail/processed status. Nobody is penalized for
-// a broken rig or unprocessed data. Includes log-only rows (real time, no trace).
+// Leaderboard = processed hours per person, straight from the manifest
+// (campaign-valid runs). Sums to the campaign total. Log-only rows (no trace)
+// are not counted, keeping the leaderboard consistent with the manifest numbers.
 export function getLeaderboard(runs, registry) {
   const collectors = {};
-  for (const run of runs) {
+  for (const run of getValidRuns(runs)) {
     const user = run.user || 'unknown';
     if (!collectors[user]) {
       collectors[user] = { user, totalMinutes: 0, buildingMinutes: {} };
