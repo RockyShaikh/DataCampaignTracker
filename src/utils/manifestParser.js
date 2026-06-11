@@ -59,6 +59,8 @@ export function parseManifest(csvText, registry) {
       processing: null,
       notes,
       hasLogEntry: false,
+      isProcessed: false,
+      isFailed: false,
       isValid: false,
       isClean: false,
       source: 'manifest',

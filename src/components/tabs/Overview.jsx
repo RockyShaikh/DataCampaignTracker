@@ -5,6 +5,8 @@ import {
   getFloorCoverage,
   getGrowthRate,
   getCumulativeValidHours,
+  getTotalValidHours,
+  getIncompleteHours,
 } from '../../utils/calculations.js';
 import EmbeddedMap from '../EmbeddedMap.jsx';
 import {
@@ -14,11 +16,13 @@ import {
 export default function Overview() {
   const {
     runs, registry, matches, paths, appSettings,
-    rawMinutes, cleanMinutes, showClean, setShowClean, hasManifest,
+    cleanMinutes, showClean, setShowClean, hasManifest,
   } = useApp();
   const goal = appSettings?.hoursGoal ?? 100;
 
-  const rawHours = rawMinutes / 60;
+  // Campaign total = processed AND not failed (matches the header exactly).
+  const rawHours = useMemo(() => getTotalValidHours(runs), [runs]);
+  const pendingHours = useMemo(() => getIncompleteHours(runs), [runs]);
   const cleanHours = cleanMinutes / 60;
   const rawPct  = Math.min((rawHours  / goal) * 100, 100);
   const cleanPct = Math.min((cleanHours / goal) * 100, 100);
@@ -40,7 +44,7 @@ export default function Overview() {
             <div className="flex items-baseline gap-3 mb-1">
               <span className="font-mono font-bold text-4xl text-accent">{rawHours.toFixed(1)}</span>
               <span className="text-text-secondary text-lg">/ {goal}h</span>
-              <span className="text-xs font-mono text-text-secondary uppercase tracking-wide">raw total</span>
+              <span className="text-xs font-mono text-text-secondary uppercase tracking-wide">campaign total</span>
               {growth.pct !== null && (
                 <span className={`text-sm font-mono ml-auto ${growth.delta >= 0 ? 'text-success' : 'text-danger'}`}>
                   {growth.delta >= 0 ? '↑' : '↓'} {Math.abs(growth.delta).toFixed(1)}h this week
@@ -73,8 +77,14 @@ export default function Overview() {
         <div className="flex items-center gap-5 mt-3 text-xs font-mono text-text-secondary">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-2 bg-accent" />
-            {rawHours.toFixed(1)}h raw (manifest)
+            {rawHours.toFixed(1)}h processed (counts toward campaign)
           </span>
+          {pendingHours > 0.05 && (
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-2 bg-warning/40 border border-warning/50" />
+              {pendingHours.toFixed(1)}h pending processing (not yet counted)
+            </span>
+          )}
           {showClean && (
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-3 h-2 bg-accent/70" />
@@ -109,7 +119,6 @@ export default function Overview() {
                 <th className="text-left pb-2 font-normal w-6">#</th>
                 <th className="text-left pb-2 font-normal">Name</th>
                 <th className="text-right pb-2 font-normal">Hrs</th>
-                <th className="text-right pb-2 font-normal">Runs</th>
               </tr>
             </thead>
             <tbody>
@@ -117,12 +126,11 @@ export default function Overview() {
                 <tr key={c.user} className="border-b border-border/20 last:border-0">
                   <td className="py-2 text-text-secondary font-mono text-xs">{i + 1}</td>
                   <td className="py-2 font-medium text-text-primary">{c.user}</td>
-                  <td className="py-2 text-right font-mono text-accent text-sm">{c.validHours.toFixed(1)}</td>
-                  <td className="py-2 text-right font-mono text-text-secondary text-xs">{c.validRuns}</td>
+                  <td className="py-2 text-right font-mono text-accent text-sm">{c.rawHours.toFixed(1)}</td>
                 </tr>
               ))}
               {leaderboard.length === 0 && (
-                <tr><td colSpan={4} className="py-6 text-center text-text-secondary text-sm">No data</td></tr>
+                <tr><td colSpan={3} className="py-6 text-center text-text-secondary text-sm">No data</td></tr>
               )}
             </tbody>
           </table>

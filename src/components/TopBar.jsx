@@ -12,8 +12,7 @@ export default function TopBar() {
     setRefreshing(false)
   }
 
-  const validHours = runs ? getTotalValidHours(runs).toFixed(1) : null
-  const totalRuns = runs?.length ?? 0
+  const campaignHours = runs ? getTotalValidHours(runs).toFixed(1) : null
   const activeFile = manifestFilename || logFilename
 
   return (
@@ -34,9 +33,7 @@ export default function TopBar() {
           <span className="text-text-secondary text-sm truncate">
             {activeFile}
             <span className="text-border mx-2">·</span>
-            <span className="font-mono text-xs">{totalRuns} runs</span>
-            <span className="text-border mx-2">·</span>
-            <span className="text-accent font-semibold font-mono text-xs">{validHours}h valid</span>
+            <span className="text-accent font-semibold font-mono text-xs">{campaignHours}h campaign</span>
           </span>
         ) : (
           <span className="text-text-secondary text-sm italic">no data loaded</span>

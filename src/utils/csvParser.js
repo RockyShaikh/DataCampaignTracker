@@ -22,16 +22,23 @@ function parseDuration(str) {
   return isNaN(n) ? 0 : n;
 }
 
-function checkValidity(collection, processing) {
+// Three-state campaign model:
+//   isProcessed = a processor has filled in the processing column
+//   isFailed    = collection OR processing is fully "fail"
+//   isValid     = processed AND not failed → counts toward TOTAL CAMPAIGN HOURS
+//   isClean     = collection pass AND processing pass (strictest, double-pass)
+//   (unprocessed & not failed → "incomplete/pending", excluded from campaign total)
+function classify(collection, processing) {
   const col = (collection || '').toLowerCase().trim();
   const proc = (processing || '').toLowerCase().trim();
-  return (col === 'pass' || col === 'recovered') && (proc === 'pass' || proc === 'minor issue');
-}
-
-function checkClean(collection, processing) {
-  const col = (collection || '').toLowerCase().trim();
-  const proc = (processing || '').toLowerCase().trim();
-  return col === 'pass' && proc === 'pass';
+  const isProcessed = proc !== '';
+  const isFailed = col === 'fail' || proc === 'fail';
+  return {
+    isProcessed,
+    isFailed,
+    isValid: isProcessed && !isFailed,
+    isClean: col === 'pass' && proc === 'pass',
+  };
 }
 
 function logDateToISO(str) {
@@ -87,8 +94,7 @@ export function parseCSV(csvText, registry) {
     const processing = (row[7] || '').trim();
     const notes = [row[8], row[9]].map(n => (n || '').trim()).filter(Boolean).join('; ');
 
-    const isValid = checkValidity(collection, processing);
-    const isClean = checkClean(collection, processing);
+    const { isProcessed, isFailed, isValid, isClean } = classify(collection, processing);
 
     // Parse location
     const { skip, results, unmatched } = parseLocation(location, aliasMap, zonePatterns);
@@ -118,6 +124,8 @@ export function parseCSV(csvText, registry) {
       collection,
       processing,
       notes,
+      isProcessed,
+      isFailed,
       isValid,
       isClean,
       hasLogEntry: true,

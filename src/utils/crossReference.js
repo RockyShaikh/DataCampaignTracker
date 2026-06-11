@@ -45,8 +45,11 @@ export function crossReference(manifestRuns, logRuns) {
 
     const col = (mRun.collection || '').toLowerCase().trim();
     const proc = (mRun.processing || '').toLowerCase().trim();
-    mRun.isValid = mRun.hasLogEntry && (col === 'pass' || col === 'recovered');
-    mRun.isClean = mRun.hasLogEntry && col === 'pass' && proc === 'pass';
+    // Three-state campaign model (see csvParser.classify):
+    mRun.isProcessed = mRun.hasLogEntry && proc !== '';
+    mRun.isFailed = col === 'fail' || proc === 'fail';
+    mRun.isValid = mRun.isProcessed && !mRun.isFailed;   // counts toward campaign total
+    mRun.isClean = col === 'pass' && proc === 'pass';
   }
 
   return manifestRuns;
@@ -69,6 +72,11 @@ export function getLogOnlyRuns(manifestRuns, logRuns) {
       durationSec: r.duration * 60,
       source: 'log',
       hasLogEntry: true,
+      // Log-only rows have no manifest trace = no actual data, so they never
+      // count toward the campaign total. They DO still count toward a person's
+      // raw hours on the leaderboard (time spent walking/collecting).
+      isProcessed: false,
+      isValid: false,
       isClean: false,
     }));
 }

@@ -10,12 +10,24 @@ function matchFloors(match) {
   return [];
 }
 
+// Campaign-valid = processed AND not failed, and backed by a real manifest trace.
+// This is the basis for TOTAL CAMPAIGN HOURS (header + Overview big number).
 export function getValidRuns(runs) {
-  return runs.filter(r => r.isValid);
+  return runs.filter(r => r.source !== 'log' && r.isValid);
 }
 
 export function getTotalValidHours(runs) {
   return (getValidRuns(runs).reduce((s, r) => s + r.duration, 0) * HAIRCUT) / 60;
+}
+
+// Incomplete = a real trace that hasn't been processed yet (and isn't failed).
+// Shown separately as "pending"; NOT counted in the campaign total.
+export function getIncompleteRuns(runs) {
+  return runs.filter(r => r.source !== 'log' && !r.isProcessed && !r.isFailed);
+}
+
+export function getIncompleteHours(runs) {
+  return (getIncompleteRuns(runs).reduce((s, r) => s + r.duration, 0) * HAIRCUT) / 60;
 }
 
 export function getTotalHours(runs) {
@@ -235,28 +247,23 @@ export function getGrowthRate(runs) {
   return { thisWeekHours, lastWeekHours, delta, pct };
 }
 
+// Leaderboard = RAW hours per person: every minute someone spent walking and
+// collecting, regardless of pass/fail/processed status. Nobody is penalized for
+// a broken rig or unprocessed data. Includes log-only rows (real time, no trace).
 export function getLeaderboard(runs, registry) {
   const collectors = {};
   for (const run of runs) {
     const user = run.user || 'unknown';
     if (!collectors[user]) {
-      collectors[user] = {
-        user, validMinutes: 0, totalMinutes: 0,
-        validRuns: 0, totalRuns: 0, buildingMinutes: {},
-      };
+      collectors[user] = { user, totalMinutes: 0, buildingMinutes: {} };
     }
     const c = collectors[user];
-    c.totalRuns++;
     c.totalMinutes += run.duration;
-    if (run.isValid) {
-      c.validRuns++;
-      c.validMinutes += run.duration;
-      const seen = new Set();
-      for (const loc of run.locationResults) {
-        if (loc.building && !seen.has(loc.building.id)) {
-          seen.add(loc.building.id);
-          c.buildingMinutes[loc.building.id] = (c.buildingMinutes[loc.building.id] || 0) + run.duration;
-        }
+    const seen = new Set();
+    for (const loc of run.locationResults) {
+      if (loc.building && !seen.has(loc.building.id)) {
+        seen.add(loc.building.id);
+        c.buildingMinutes[loc.building.id] = (c.buildingMinutes[loc.building.id] || 0) + run.duration;
       }
     }
   }
@@ -269,12 +276,11 @@ export function getLeaderboard(runs, registry) {
         : '—';
       return {
         ...c,
-        validHours: (c.validMinutes * HAIRCUT) / 60,
-        totalHours: (c.totalMinutes * HAIRCUT) / 60,
+        rawHours: (c.totalMinutes * HAIRCUT) / 60,
         topBuilding,
       };
     })
-    .sort((a, b) => b.validHours - a.validHours);
+    .sort((a, b) => b.rawHours - a.rawHours);
 }
 
 export function getBuildingStairsRuns(buildingId, runs) {

@@ -52,7 +52,11 @@ export function AppProvider({ children }) {
         setRuns([...merged, ...logOnly])
         setUnmatched([...mUnmatched, ...lUnmatched])
       } else {
+        // Manifest-only (no input log): no processing info available, so treat
+        // every trace as valid/processed rather than hiding it as "incomplete".
         for (const r of mRuns) {
+          r.isProcessed = true
+          r.isFailed = false
           r.isValid = true
           r.isClean = false
         }

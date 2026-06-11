@@ -5,6 +5,8 @@ import {
 import { useApp } from '../../context/AppContext.jsx';
 import {
   getTotalValidHours,
+  getValidRuns,
+  getIncompleteRuns,
   getFullyCoveredFloorCount,
   getActiveBuildings,
   getCumulativeValidHours,
@@ -52,7 +54,10 @@ function HBar({ label, hours, maxHours, color = '#CC0000' }) {
 export default function Analysis() {
   const { runs, registry, matches, appSettings } = useApp();
 
-  const validRuns = useMemo(() => runs.filter(r => r.isValid), [runs]);
+  const validRuns = useMemo(() => getValidRuns(runs), [runs]);
+  const incompleteRuns = useMemo(() => getIncompleteRuns(runs), [runs]);
+  const traces = useMemo(() => runs.filter(r => r.source !== 'log'), [runs]);
+  const failedRuns = useMemo(() => traces.filter(r => r.isFailed), [traces]);
   const validHours = useMemo(() => getTotalValidHours(runs), [runs]);
   const coverage = useMemo(() => getFloorCoverage(runs, matches), [runs, matches]);
   const { count: floorsDone, total: floorsTotal } = useMemo(
@@ -64,7 +69,7 @@ export default function Analysis() {
   const byBuilding = useMemo(() => getHoursPerBuilding(runs, registry), [runs, registry]);
   const cumulative = useMemo(() => getCumulativeValidHours(runs), [runs]);
 
-  const passRate = runs.length ? (validRuns.length / runs.length) * 100 : 0;
+  const passRate = traces.length ? (validRuns.length / traces.length) * 100 : 0;
   const maxOrient = Math.max(orientBalance.forward, orientBalance.backward, orientBalance.lateral, 0.01);
   const maxType = byType[0]?.hours ?? 0.01;
   const maxBuilding = byBuilding[0]?.hours ?? 0.01;
@@ -134,10 +139,11 @@ export default function Analysis() {
           <table className="w-full text-sm">
             <tbody>
               {[
-                { label: 'Valid runs', value: validRuns.length, cls: 'text-success' },
-                { label: 'Invalid runs', value: runs.length - validRuns.length, cls: 'text-danger' },
-                { label: 'Pass rate', value: `${passRate.toFixed(1)}%`, cls: passRate >= 80 ? 'text-success' : passRate >= 60 ? 'text-warning' : 'text-danger' },
-                { label: 'Total runs', value: runs.length, cls: 'text-text-primary' },
+                { label: 'Valid (campaign)', value: validRuns.length, cls: 'text-success' },
+                { label: 'Pending processing', value: incompleteRuns.length, cls: 'text-warning' },
+                { label: 'Failed', value: failedRuns.length, cls: 'text-danger' },
+                { label: 'Pass rate (of traces)', value: `${passRate.toFixed(1)}%`, cls: passRate >= 80 ? 'text-success' : passRate >= 60 ? 'text-warning' : 'text-danger' },
+                { label: 'Total traces', value: traces.length, cls: 'text-text-primary' },
               ].map(({ label, value, cls }) => (
                 <tr key={label} className="border-b border-border/40 last:border-0">
                   <td className="py-2 text-text-secondary">{label}</td>
