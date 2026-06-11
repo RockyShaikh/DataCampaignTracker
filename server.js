@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { createBackup } from './scripts/backup.js'
+import { startSync, getStatus, pollOnce } from './sync.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -95,6 +96,21 @@ app.get('/api/upload-log', (req, res) => {
   const logPath = path.join(DATA, 'upload_log.json')
   const log = fs.existsSync(logPath) ? JSON.parse(fs.readFileSync(logPath, 'utf8')) : []
   res.json(log)
+})
+
+// ── Auto-sync status ─────────────────────────────────────────────────
+app.get('/api/sync-status', (req, res) => {
+  res.json(getStatus())
+})
+
+// Force an immediate poll (used for testing / a manual "check now")
+app.post('/api/sync-now', async (req, res) => {
+  try {
+    const committed = await pollOnce(DATA)
+    res.json({ ok: true, committed, status: getStatus() })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // ── Backups (snapshot data/ tied to git sha) ─────────────────────────
@@ -197,4 +213,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Data folder → ${DATA}`)
   console.log(fileInfo('log.csv') ? `Log CSV → log.csv` : 'No log.csv — upload via Settings')
   console.log(fileInfo('manifest.csv') ? `Manifest → manifest.csv` : 'No manifest.csv — upload via Settings')
+  startSync(DATA, { onCommit: () => console.log('[sync] committed new log/manifest from sheet') })
 })

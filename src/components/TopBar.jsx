@@ -2,8 +2,33 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext.jsx'
 import { getTotalValidHours } from '../utils/calculations.js'
 
+function fmtTime(iso) {
+  if (!iso) return null
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+function SyncBadge({ status }) {
+  if (!status) return null
+  if (!status.configured) {
+    return <span className="text-[11px] font-mono text-text-secondary/70">auto-sync off</span>
+  }
+  const dot = status.state === 'error' ? 'bg-danger'
+    : status.state === 'syncing' ? 'bg-warning animate-pulse'
+    : 'bg-success'
+  const when = fmtTime(status.lastSyncAt) || fmtTime(status.lastCheckedAt)
+  const label = status.state === 'syncing' ? 'syncing…'
+    : status.state === 'error' ? 'sync error'
+    : when ? `synced ${when}` : 'waiting…'
+  return (
+    <span className="flex items-center gap-1.5 text-[11px] font-mono text-text-secondary" title={status.message || ''}>
+      <span className={`inline-block w-2 h-2 rounded-full ${dot}`} />
+      {label}
+    </span>
+  )
+}
+
 export default function TopBar() {
-  const { runs, logFilename, manifestFilename, refresh } = useApp()
+  const { runs, logFilename, manifestFilename, refresh, syncStatus } = useApp()
   const [refreshing, setRefreshing] = useState(false)
 
   async function handleRefresh() {
@@ -39,6 +64,8 @@ export default function TopBar() {
           <span className="text-text-secondary text-sm italic">no data loaded</span>
         )}
       </div>
+
+      <SyncBadge status={syncStatus} />
 
       <button
         onClick={handleRefresh}

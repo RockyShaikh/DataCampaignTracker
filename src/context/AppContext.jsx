@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { parseLog } from '../utils/csvParser.js'
 import { parseManifest } from '../utils/manifestParser.js'
 import { crossReference, getLogOnlyRuns } from '../utils/crossReference.js'
@@ -115,6 +115,27 @@ export function AppProvider({ children }) {
 
   useEffect(() => { loadFromServer() }, [loadFromServer])
 
+  // Auto-sync: poll status; when the server commits new sheet data, reload it.
+  const [syncStatus, setSyncStatus] = useState(null)
+  const lastSyncRef = useRef(null)
+  useEffect(() => {
+    let cancelled = false
+    async function poll() {
+      try {
+        const s = await apiFetch('/api/sync-status').then(r => r.json())
+        if (cancelled) return
+        setSyncStatus(s)
+        if (s.lastSyncAt && s.lastSyncAt !== lastSyncRef.current) {
+          if (lastSyncRef.current !== null) loadFromServer() // new data arrived → refresh
+          lastSyncRef.current = s.lastSyncAt
+        }
+      } catch { /* ignore transient poll errors */ }
+    }
+    poll()
+    const id = setInterval(poll, 60 * 1000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [loadFromServer])
+
   const rawMinutes = useMemo(() => {
     if (!runs) return 0
     if (hasManifest) return getRawMinutes(runs)
@@ -182,6 +203,7 @@ export function AppProvider({ children }) {
       setActiveTab,
       loading,
       error,
+      syncStatus,
       refresh: loadFromServer,
     }}>
       {children}
