@@ -140,9 +140,8 @@ export default function Analysis() {
                   </tbody>
                 </table>
                 <p className="mt-3 text-[11px] italic text-text-secondary">
-                  Hours (h), campaign data with a matched location. Outdoor fills in once
-                  zones are defined; runs whose location matches no building aren't shown.
-                  A run spanning both counts in each row.
+                  Hours (h), campaign data. Indoor/outdoor comes from the manifest type
+                  column; a "mixed" run counts in both rows.
                 </p>
               </div>
             </div>

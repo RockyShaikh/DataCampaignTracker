@@ -176,9 +176,17 @@ export function getOrientationBalance(runs) {
   };
 }
 
-// Cross-tab: campaign hours by movement (forward/backward/lateral) × environment
-// (indoor building vs outdoor zone). A run touching both counts in both buckets.
-// Returns hours, plus per-row/col/grand totals.
+// Cross-tab: campaign hours by movement (forward/backward/lateral) × environment.
+// Environment comes straight from the manifest `type` column (indoor/outdoor/etc.)
+// — no location-string matching needed. "mixed" type counts in both rows.
+const OUTDOOR_TYPES = new Set(['outdoor', 'park', 'campus', 'night']);
+export function environmentOfType(type) {
+  const t = (type || '').toLowerCase().trim();
+  if (t === 'mixed') return ['indoor', 'outdoor'];
+  if (OUTDOOR_TYPES.has(t)) return ['outdoor'];
+  return ['indoor']; // indoor, stairs, room, or anything else
+}
+
 export function getMovementByEnvironment(runs) {
   const mins = {
     indoor: { forward: 0, backward: 0, lateral: 0 },
@@ -187,14 +195,9 @@ export function getMovementByEnvironment(runs) {
   for (const run of getValidRuns(runs)) {
     const m = run.movement;
     if (!VALID_ORIENTATIONS.includes(m)) continue;
-    let hasIndoor = false, hasOutdoor = false;
-    for (const loc of run.locationResults) {
-      if (!loc.building) continue;
-      if (loc.building.type === 'zone') hasOutdoor = true;
-      else hasIndoor = true;
+    for (const env of environmentOfType(run.type)) {
+      mins[env][m] += run.duration;
     }
-    if (hasIndoor) mins.indoor[m] += run.duration;
-    if (hasOutdoor) mins.outdoor[m] += run.duration;
   }
   const h = v => (v * HAIRCUT) / 60;
   const rows = ['indoor', 'outdoor'].map(env => {
