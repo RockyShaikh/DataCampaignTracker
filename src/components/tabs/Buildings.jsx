@@ -7,6 +7,7 @@ import {
   getBuildingStairsRuns,
   getBuildingWholeBuildingRuns,
   getCellStatus,
+  getCoverageRecommendations,
 } from '../../utils/calculations.js';
 
 const ORIENTATIONS = ['forward', 'backward', 'lateral'];
@@ -183,6 +184,57 @@ function BuildingCard({ building, runs, coverage }) {
   );
 }
 
+function RecsGroup({ title, entries }) {
+  if (entries.length === 0) return null;
+  return (
+    <div className="flex-1 min-w-[260px]">
+      <div className="text-[11px] font-mono uppercase tracking-wider text-text-secondary mb-2">{title}</div>
+      <div className="space-y-1.5">
+        {entries.slice(0, 8).map(e => (
+          <div key={e.id} className="flex items-start gap-2 text-xs">
+            <span className="font-mono font-semibold text-text-secondary w-12 shrink-0 pt-0.5">{e.id}</span>
+            <div className="flex-1 min-w-0">
+              <span className="font-ui text-text-primary">{e.name}</span>
+              {e.untouched && (
+                <span className="ml-1.5 text-[9px] font-mono uppercase bg-accent-light text-accent border border-accent/20 rounded px-1 py-0.5">untouched</span>
+              )}
+              <div className="flex flex-wrap gap-1 mt-1">
+                {e.uncovered.map(f => (
+                  <span key={f} className="font-mono text-[10px] bg-bg border border-border rounded px-1.5 py-0.5 text-text-secondary uppercase">{f}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+        {entries.length > 8 && (
+          <div className="text-[10px] font-mono text-text-secondary/60 pt-1">+{entries.length - 8} more buildings</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Recommendations({ registry, coverage }) {
+  const recs = useMemo(() => getCoverageRecommendations(registry, coverage), [registry, coverage]);
+  const empty = recs.indoor.length === 0 && recs.outdoor.length === 0;
+  return (
+    <div className="bg-white border border-border rounded-xl p-4">
+      <h3 className="font-ui font-semibold text-text-primary text-sm mb-1">Recommended to cover next</h3>
+      <p className="text-[11px] font-mono text-text-secondary mb-3">
+        Floors with no coverage yet (any orientation). Untouched buildings first.
+      </p>
+      {empty ? (
+        <p className="text-sm text-success">🎉 Every floor has at least some coverage.</p>
+      ) : (
+        <div className="flex gap-6 flex-wrap">
+          <RecsGroup title={`Indoor (${recs.indoor.length})`} entries={recs.indoor} />
+          <RecsGroup title={`Outdoor (${recs.outdoor.length})`} entries={recs.outdoor} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Buildings() {
   const { runs, registry, matches, unmatched } = useApp();
   const [sortAlpha, setSortAlpha] = useState(false);
@@ -216,6 +268,8 @@ export default function Buildings() {
           Sort: {sortAlpha ? 'A → Z' : 'Coverage ↓'}
         </button>
       </div>
+
+      <Recommendations registry={registry} coverage={coverage} />
 
       <div className="space-y-2">
         {buildings.map(b => (

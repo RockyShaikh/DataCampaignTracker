@@ -113,6 +113,28 @@ export function isFloorAnyCovered(coverage, buildingId, floor) {
   return VALID_ORIENTATIONS.some(o => fc[o]);
 }
 
+// "What to cover next" — floors with NO coverage at all (gray on every
+// orientation), split indoor vs outdoor (zone). Fully-undiscovered buildings
+// (no floor touched yet) are surfaced first, then biggest remaining gaps.
+export function getCoverageRecommendations(registry, coverage) {
+  const out = { indoor: [], outdoor: [] };
+  for (const b of (registry.buildings || [])) {
+    const floors = b.floors || [];
+    if (floors.length === 0) continue;
+    const uncovered = floors.filter(f => !isFloorAnyCovered(coverage, b.id, f));
+    if (uncovered.length === 0) continue;
+    const anyCovered = floors.some(f => isFloorAnyCovered(coverage, b.id, f));
+    const entry = { id: b.id, name: b.name, uncovered, totalFloors: floors.length, untouched: !anyCovered };
+    (b.type === 'zone' ? out.outdoor : out.indoor).push(entry);
+  }
+  const sort = arr => arr.sort((a, b) => {
+    if (a.untouched !== b.untouched) return a.untouched ? -1 : 1; // untouched first
+    return b.uncovered.length - a.uncovered.length;               // then biggest gaps
+  });
+  sort(out.indoor); sort(out.outdoor);
+  return out;
+}
+
 export function getBuildingProgress(building, coverage) {
   const floors = building.floors || [];
   const total = floors.length * VALID_ORIENTATIONS.length;
