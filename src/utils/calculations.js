@@ -176,6 +176,39 @@ export function getOrientationBalance(runs) {
   };
 }
 
+// Cross-tab: campaign hours by movement (forward/backward/lateral) × environment
+// (indoor building vs outdoor zone). A run touching both counts in both buckets.
+// Returns hours, plus per-row/col/grand totals.
+export function getMovementByEnvironment(runs) {
+  const mins = {
+    indoor: { forward: 0, backward: 0, lateral: 0 },
+    outdoor: { forward: 0, backward: 0, lateral: 0 },
+  };
+  for (const run of getValidRuns(runs)) {
+    const m = run.movement;
+    if (!VALID_ORIENTATIONS.includes(m)) continue;
+    let hasIndoor = false, hasOutdoor = false;
+    for (const loc of run.locationResults) {
+      if (!loc.building) continue;
+      if (loc.building.type === 'zone') hasOutdoor = true;
+      else hasIndoor = true;
+    }
+    if (hasIndoor) mins.indoor[m] += run.duration;
+    if (hasOutdoor) mins.outdoor[m] += run.duration;
+  }
+  const h = v => (v * HAIRCUT) / 60;
+  const rows = ['indoor', 'outdoor'].map(env => {
+    const f = h(mins[env].forward), b = h(mins[env].backward), l = h(mins[env].lateral);
+    return { env, forward: f, backward: b, lateral: l, total: f + b + l };
+  });
+  const colTotal = o => rows.reduce((s, r) => s + r[o], 0);
+  return {
+    rows,
+    colTotals: { forward: colTotal('forward'), backward: colTotal('backward'), lateral: colTotal('lateral') },
+    grandTotal: rows.reduce((s, r) => s + r.total, 0),
+  };
+}
+
 export function getCollectionByType(runs) {
   const map = {};
   for (const run of getValidRuns(runs)) {

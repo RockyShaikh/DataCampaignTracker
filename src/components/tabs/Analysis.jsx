@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { useApp } from '../../context/AppContext.jsx';
 import {
@@ -14,6 +15,7 @@ import {
   getCollectionByType,
   getHoursPerBuilding,
   getFloorCoverage,
+  getMovementByEnvironment,
 } from '../../utils/calculations.js';
 
 const TOOLTIP_STYLE = {
@@ -68,6 +70,15 @@ export default function Analysis() {
   const byType = useMemo(() => getCollectionByType(runs), [runs]);
   const byBuilding = useMemo(() => getHoursPerBuilding(runs, registry), [runs, registry]);
   const cumulative = useMemo(() => getCumulativeValidHours(runs), [runs]);
+  const moveEnv = useMemo(() => getMovementByEnvironment(runs), [runs]);
+
+  const indoor = moveEnv.rows.find(r => r.env === 'indoor');
+  const outdoor = moveEnv.rows.find(r => r.env === 'outdoor');
+  const crossData = [
+    { movement: 'Forward', Indoor: indoor.forward, Outdoor: outdoor.forward },
+    { movement: 'Backward', Indoor: indoor.backward, Outdoor: outdoor.backward },
+    { movement: 'Lateral', Indoor: indoor.lateral, Outdoor: outdoor.lateral },
+  ];
 
   const passRate = traces.length ? (validRuns.length / traces.length) * 100 : 0;
   const maxOrient = Math.max(orientBalance.forward, orientBalance.backward, orientBalance.lateral, 0.01);
@@ -78,6 +89,65 @@ export default function Analysis() {
     <div className="p-6 max-w-[1200px] mx-auto space-y-6">
 
       <div className="grid grid-cols-2 gap-6">
+
+        <div className="col-span-2">
+          <Section title="Movement × Location — campaign hours">
+            <div className="grid grid-cols-5 gap-6 items-center">
+              <div className="col-span-3">
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={crossData} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
+                    <CartesianGrid stroke="#F0F0F0" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="movement"
+                      tick={{ fill: '#555', fontSize: 12, fontFamily: 'JetBrains Mono' }}
+                      tickLine={false} axisLine={{ stroke: '#E5E5E5' }} />
+                    <YAxis tick={{ fill: '#555', fontSize: 11, fontFamily: 'JetBrains Mono' }}
+                      tickLine={false} axisLine={false} />
+                    <Tooltip {...TOOLTIP_STYLE} formatter={(v, n) => [`${v.toFixed(2)} h`, n]} />
+                    <Legend wrapperStyle={{ fontSize: 12, fontFamily: 'Fira Sans' }} />
+                    <Bar dataKey="Indoor" fill="#CC0000" />
+                    <Bar dataKey="Outdoor" fill="#1D4ED8" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="col-span-2">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-text-secondary text-xs border-b border-border">
+                      <th className="text-left pb-2 font-normal"></th>
+                      <th className="text-right pb-2 font-normal">Fwd</th>
+                      <th className="text-right pb-2 font-normal">Bwd</th>
+                      <th className="text-right pb-2 font-normal">Lat</th>
+                      <th className="text-right pb-2 font-normal font-semibold">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-mono">
+                    {moveEnv.rows.map(r => (
+                      <tr key={r.env} className="border-b border-border/30">
+                        <td className="py-1.5 capitalize font-ui text-text-primary">{r.env}</td>
+                        <td className="py-1.5 text-right text-text-secondary">{r.forward.toFixed(1)}</td>
+                        <td className="py-1.5 text-right text-text-secondary">{r.backward.toFixed(1)}</td>
+                        <td className="py-1.5 text-right text-text-secondary">{r.lateral.toFixed(1)}</td>
+                        <td className="py-1.5 text-right font-semibold text-text-primary">{r.total.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td className="py-1.5 font-ui text-text-secondary">Total</td>
+                      <td className="py-1.5 text-right text-text-secondary">{moveEnv.colTotals.forward.toFixed(1)}</td>
+                      <td className="py-1.5 text-right text-text-secondary">{moveEnv.colTotals.backward.toFixed(1)}</td>
+                      <td className="py-1.5 text-right text-text-secondary">{moveEnv.colTotals.lateral.toFixed(1)}</td>
+                      <td className="py-1.5 text-right font-semibold text-accent">{moveEnv.grandTotal.toFixed(1)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="mt-3 text-[11px] italic text-text-secondary">
+                  Hours (h), campaign data with a matched location. Outdoor fills in once
+                  zones are defined; runs whose location matches no building aren't shown.
+                  A run spanning both counts in each row.
+                </p>
+              </div>
+            </div>
+          </Section>
+        </div>
 
         <Section title="Collection by Movement">
           <div className="space-y-3">
