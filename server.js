@@ -4,6 +4,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { createBackup } from './scripts/backup.js'
 import { startSync, getStatus, pollOnce } from './sync.js'
+import { buildReport, sendReport } from './slackReport.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -108,6 +109,27 @@ app.post('/api/sync-now', async (req, res) => {
   try {
     const committed = await pollOnce(DATA)
     res.json({ ok: true, committed, status: getStatus() })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── Slack weekly report ──────────────────────────────────────────────
+app.get('/api/slack-report/preview', (req, res) => {
+  try {
+    const report = buildReport(DATA)
+    res.json({ configured: !!process.env.SLACK_WEBHOOK_URL, ...report })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+app.post('/api/slack-report', async (req, res) => {
+  const url = process.env.SLACK_WEBHOOK_URL
+  if (!url) return res.status(400).json({ error: 'SLACK_WEBHOOK_URL not set' })
+  try {
+    const report = await sendReport(DATA, url)
+    res.json({ ok: true, total: report.total, weekCount: report.weekCount })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

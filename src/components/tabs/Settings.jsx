@@ -175,6 +175,48 @@ function BackupsCard() {
   );
 }
 
+function SlackReportCard() {
+  const [preview, setPreview] = useState(null);
+  const [configured, setConfigured] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const load = useCallback(() => {
+    fetch('/api/slack-report/preview').then(r => r.json()).then(d => {
+      setPreview(d.text || ''); setConfigured(!!d.configured);
+    }).catch(() => {});
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function send() {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/slack-report', { method: 'POST' });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `Error ${res.status}`);
+      setMsg(`Sent ✓ (${d.weekCount} collectors this week)`);
+    } catch (e) { setMsg(`Failed: ${e.message}`); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="bg-white border border-border rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-ui font-semibold text-text-primary text-sm">Slack Weekly Report</h3>
+        <button onClick={send} disabled={busy || !configured}
+          className="text-xs font-ui px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors disabled:opacity-50"
+          title={configured ? '' : 'Set SLACK_WEBHOOK_URL on the server first'}>
+          {busy ? 'Sending…' : configured ? '➤ Send to Slack' : 'Webhook not set'}
+        </button>
+      </div>
+      {msg && <p className="text-xs font-mono text-text-secondary mb-2">{msg}</p>}
+      <pre className="text-[11px] font-mono text-text-secondary whitespace-pre-wrap bg-bg border border-border rounded-lg p-3 max-h-72 overflow-auto">
+        {preview ?? 'Loading preview…'}
+      </pre>
+    </div>
+  );
+}
+
 export default function Settings() {
   const { registry, setRegistry, appSettings, setAppSettings } = useApp();
   const [showNewForm, setShowNewForm] = useState(false);
@@ -228,6 +270,9 @@ export default function Settings() {
 
       {/* Backups */}
       <BackupsCard />
+
+      {/* Slack report */}
+      <SlackReportCard />
 
       {/* Hours goal */}
       <div className="bg-white border border-border rounded-xl p-4">

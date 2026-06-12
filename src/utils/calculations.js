@@ -308,6 +308,20 @@ export function getGrowthRate(runs) {
 // Leaderboard = processed hours per person, straight from the manifest
 // (campaign-valid runs). Sums to the campaign total. Log-only rows (no trace)
 // are not counted, keeping the leaderboard consistent with the manifest numbers.
+// Per-collector campaign hours within the last `sinceDays` (for weekly reports).
+export function getWeeklyCollectorHours(runs, sinceDays = 7) {
+  const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+  const map = {};
+  for (const r of getValidRuns(runs)) {
+    if (!r.date || r.date < since) continue;
+    const u = r.user || 'unknown';
+    map[u] = (map[u] || 0) + r.duration;
+  }
+  return Object.entries(map)
+    .map(([user, m]) => ({ user, hours: (m * HAIRCUT) / 60 }))
+    .sort((a, b) => b.hours - a.hours);
+}
+
 export function getLeaderboard(runs, registry) {
   const collectors = {};
   for (const run of getValidRuns(runs)) {
