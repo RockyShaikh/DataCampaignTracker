@@ -30,6 +30,12 @@ body {
 /* Leaflet */
 .leaflet-container { background: #e8e8e8; }
 
+/* Mute the OpenStreetMap basemap to a light grey so the green/yellow/gray
+   coverage markers and zone polygons stay legible on top of it. */
+.leaflet-tile-pane {
+  filter: grayscale(0.9) brightness(1.08) contrast(0.88);
+}
+
 .leaflet-popup-content-wrapper {
   background: #ffffff;
   border: 1px solid #C0C0C0;
