@@ -1,0 +1,35 @@
+# Config for throwaway per-PR preview apps (see .github/workflows/preview.yml).
+#
+# Two deliberate differences from fly.toml:
+#
+#   1. NO [[mounts]]. A preview has no volume — /data is container-local and
+#      dies with the machine. That is fine because the source of truth is the
+#      Google Sheet: sync.js repopulates log.csv/manifest.csv on boot, and the
+#      building registry falls back to the shipped public/buildings.json.
+#      Nothing to seed, nothing to clean up, no risk to production data.
+#
+#   2. Scales to zero. A preview sleeps between the reviewer's clicks and wakes
+#      on request, so an open PR costs almost nothing while nobody is looking.
+#
+# Caveat worth knowing when reviewing: a preview shows the SHIPPED building
+# registry, not the zone/registry edits made through production's UI. Coverage
+# colours and zone polygons may differ from prod.
+
+app = 'PLACEHOLDER-SET-BY-WORKFLOW'
+primary_region = 'iad'
+
+[build]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024

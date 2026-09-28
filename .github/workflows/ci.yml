@@ -1,0 +1,39 @@
+name: CI
+
+# Runs on every pull request. This is the gate that branch protection requires
+# before main can be merged into.
+on:
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same PR cancels the in-flight run — no point finishing a
+# build for code that has already been replaced.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build + smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` (not `npm install`) — installs exactly the lockfile, and fails
+      # if package.json and package-lock.json have drifted apart.
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Boots the real server against an empty DATA_DIR and probes every route
+      # the dashboard depends on. Catches the "app imports a file that isn't in
+      # git" class of bug, and anything that throws on startup.
+      - name: Smoke test
+        run: npm run smoke
