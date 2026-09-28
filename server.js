@@ -271,6 +271,12 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(DIST, 'index.html'))
 })
 
+// Create DATA_DIR before anything writes to it. In production this is a mounted
+// Fly volume that already exists, but a deployment without one (a PR preview) has
+// no /data at all, and sync.js's first writeFileSync fails with ENOENT — so the
+// app can never bootstrap itself from the sheet. Cheap and idempotent.
+ensureData()
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Dashboard → http://0.0.0.0:${PORT}`)
   console.log(`Data folder → ${DATA}`)
