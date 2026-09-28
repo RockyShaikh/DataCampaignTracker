@@ -46,15 +46,26 @@ jobs:
       issues: write           # comment back on the issue
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0      # agent needs history to branch sensibly
+
+      # Hand the agent a warm node_modules. Without this it has to run
+      # `npm install` itself before it can run `npm run ci`, burning turns on
+      # setup instead of on the actual change.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
 
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: |
-            --max-turns 25
+            --model opus
+            --max-turns 60
           prompt: |
             You are working on DataCampaignTracker, the CMU WiSELab data
             collection dashboard. Read CLAUDE.md first — it documents the

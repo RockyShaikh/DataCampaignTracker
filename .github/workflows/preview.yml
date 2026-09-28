@@ -28,7 +28,7 @@ jobs:
       contents: read
       pull-requests: write   # needed to post the preview URL as a comment
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       # `fly apps create` errors if the app already exists, which is the normal
