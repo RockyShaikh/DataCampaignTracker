@@ -107,10 +107,23 @@ Done once per repository. If the pipeline is already running, skip this.
 
 1. **Fly deploy token** → GitHub secret `FLY_API_TOKEN`
    ```bash
-   fly tokens create deploy -a datacampaigntracker
+   fly tokens create deploy -a datacampaigntracker -x 8760h
    ```
-   Scoped to deploying this one app. Paste into
+   Scoped to deploying this one app — used only by `deploy.yml`. Paste into
    *Settings → Secrets and variables → Actions*.
+
+   ⚠️ Copy the **whole** string, starting with `FlyV1 `. A Fly token is a root
+   macaroon plus appended discharge tokens; a truncated copy fails with
+   `missing third-party discharge token`.
+
+1b. **Fly org token** → GitHub secret `FLY_ORG_TOKEN`
+   ```bash
+   fly tokens create org -o personal -x 8760h
+   ```
+   Preview apps are *separate apps*, so `preview.yml` needs org scope to
+   create and destroy them. The app-scoped token above returns `unauthorized`
+   on `apps list`/`create`/`destroy`. Two tokens rather than one org token
+   everywhere keeps the production deploy path narrowly scoped.
 
 2. **Claude subscription token** → GitHub secret `CLAUDE_CODE_OAUTH_TOKEN`
    ```bash
