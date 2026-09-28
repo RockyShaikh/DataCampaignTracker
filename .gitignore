@@ -4,3 +4,13 @@ backups/
 *.log
 .DS_Store
 *:Zone.Identifier
+
+# Generated knowledge graph (large, rebuildable via `graphify update .`)
+graphify-out/
+
+# Local agent/editor state
+.claude/settings.local.json
+
+# Campaign data never belongs in this repo — see data/.gitignore
+data/*.csv
+data/*.json

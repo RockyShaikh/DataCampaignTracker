@@ -1,3 +1,16 @@
-# Live website-side state IS tracked in git (per-session history).
-# Only ignore Windows alternate-data-stream junk files.
-*:Zone.Identifier
+# ─────────────────────────────────────────────────────────────
+# NO CAMPAIGN DATA IN GIT.
+#
+# This directory is the app's runtime state store (DATA_DIR).
+# Everything the server reads or writes here is real collection
+# data — collector names, timestamped run logs, campus locations,
+# rig notes — and none of it belongs in a public repo.
+#
+# Ignore everything; keep only the directory itself.
+# See the README ("Where the data goes") for the expected files.
+# ─────────────────────────────────────────────────────────────
+*
+
+# ...except the scaffolding that defines this directory.
+!.gitignore
+!.gitkeep
