@@ -100,6 +100,13 @@ function parseSegment(segment, aliasMap) {
   const s = segment.trim();
   if (!s) return [];
 
+  // If the whole segment is itself a registered alias (e.g. "east.campus.garage"),
+  // treat it as a whole-building match BEFORE splitting on dots — otherwise the dot
+  // split would read "east" + phantom floor "campus.garage".
+  if (aliasMap.has(s.toLowerCase())) {
+    return [{ building: aliasMap.get(s.toLowerCase()), type: 'whole-building', rawSegment: s }];
+  }
+
   const dotIdx = s.indexOf('.');
   if (dotIdx !== -1) {
     const buildingPart = s.slice(0, dotIdx);
@@ -116,6 +123,11 @@ function parseSegment(segment, aliasMap) {
   const sLower = s.toLowerCase();
   for (const [alias, building] of sortedAliases) {
     if (sLower.startsWith(alias)) {
+      // Require a word boundary after the alias: the next char must be a floor
+      // designator (digit/space/dash) or end-of-string. This stops "baker" from
+      // swallowing "bakerysquare" as Baker Hall floor "ysquare".
+      const after = sLower.charAt(alias.length);
+      if (after && /[a-z]/.test(after)) continue;
       const remainder = s.slice(alias.length).trim();
       if (!remainder) {
         return [{ building, type: 'whole-building', rawSegment: s }];
