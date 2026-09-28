@@ -125,6 +125,13 @@ function fmt(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
     ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
+// Strava/trace start times are stored as local wall-clock carried in a UTC-suffixed
+// string. Format in UTC so the browser doesn't re-shift them by its own offset.
+function fmtWall(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) +
+    ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+}
 function BackupsCard() {
   const [list, setList] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -217,6 +224,181 @@ function SlackReportCard() {
   );
 }
 
+function StravaSyncCard() {
+  const { refresh } = useApp();
+  const [status, setStatus] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [traces, setTraces] = useState([]);
+  const [cookie, setCookieInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const load = useCallback(() => {
+    fetch('/api/strava/status').then(r => r.json()).then(setStatus).catch(() => {});
+    fetch('/api/strava/activities').then(r => r.json()).then(d => setActivities(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch('/api/strava/traces').then(r => r.json()).then(d => setTraces(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function match(activityId, trace) {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/strava/match', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activityId, trace }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `Error ${res.status}`);
+      setStatus(d.status);
+      setMsg(trace ? 'Attached ✓' : 'Detached ✓');
+      load();
+      await refresh();   // reload global paths/runs so the map + Run Log pin update now
+    } catch (e) { setMsg(`Failed: ${e.message}`); }
+    finally { setBusy(false); }
+  }
+
+  async function saveCookie() {
+    if (!cookie.trim()) return;
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/strava/cookie', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookie: cookie.trim() }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `Error ${res.status}`);
+      setCookieInput(''); setMsg('Cookie saved — syncing…');
+      await syncNow();
+    } catch (e) { setMsg(`Failed: ${e.message}`); setBusy(false); }
+  }
+
+  async function syncNow() {
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/strava/sync-now', { method: 'POST' });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `Error ${res.status}`);
+      setStatus(d.status);
+      setMsg(`Synced ✓ ${d.status.matched} matched · ${d.status.unmatched} waiting for a trace`);
+      load();
+      await refresh();   // pull any newly-matched paths into the map + Run Log now
+    } catch (e) { setMsg(`Failed: ${e.message}`); }
+    finally { setBusy(false); }
+  }
+
+  const stateColor = {
+    idle: 'text-success', expired: 'text-danger', error: 'text-danger',
+    syncing: 'text-amber-500', disabled: 'text-text-secondary',
+  }[status?.state] || 'text-text-secondary';
+  const stateLabel = {
+    idle: status?.connected ? '● connected' : '● idle', syncing: '● syncing…',
+    expired: '● session expired', error: '● error', disabled: '○ no cookie set',
+  }[status?.state] || '…';
+
+  return (
+    <div className="bg-white border border-border rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-ui font-semibold text-text-primary text-sm">Strava GPS Sync</h3>
+        <span className={`text-xs font-mono ${stateColor}`}>{stateLabel}</span>
+      </div>
+      <p className="text-xs font-mono text-text-secondary mb-3 leading-relaxed">
+        Pulls GPS tracks from the shared Strava account and matches each to the nearest trace by start time —
+        no metadata re-entry. To connect: log into Strava in a browser → DevTools → Application → Cookies →
+        <span className="text-text-primary"> www.strava.com</span> → copy the
+        <span className="text-accent"> _strava4_session</span> value → paste below.
+      </p>
+
+      {status && (
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs font-mono text-text-secondary mb-3">
+          <span>matched: <span className="text-success">{status.matched}</span></span>
+          <span>waiting: <span className="text-text-primary">{status.unmatched}</span></span>
+          {status.lastSyncAt && <span>last match: {fmt(status.lastSyncAt)}</span>}
+          {status.lastCheckedAt && <span>last check: {fmt(status.lastCheckedAt)}</span>}
+        </div>
+      )}
+      {status?.message && status.state !== 'idle' && (
+        <p className={`text-xs font-mono mb-3 ${status.state === 'expired' || status.state === 'error' ? 'text-danger' : 'text-text-secondary'}`}>
+          {status.message}
+        </p>
+      )}
+
+      <div className="flex gap-2 items-center">
+        <input
+          type="password"
+          value={cookie}
+          onChange={e => setCookieInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && saveCookie()}
+          placeholder="_strava4_session value…"
+          className="flex-1 bg-white border border-border rounded-lg px-2 py-1.5 text-xs font-mono text-text-primary focus:outline-none focus:border-accent/40" />
+        <button onClick={saveCookie} disabled={busy || !cookie.trim()}
+          className="text-xs font-ui px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors disabled:opacity-50">
+          Save cookie
+        </button>
+        <button onClick={syncNow} disabled={busy || !status?.connected}
+          className="text-xs font-ui px-4 py-2 border border-border text-text-secondary rounded-lg hover:border-text-secondary hover:text-text-primary transition-colors disabled:opacity-50">
+          {busy ? '…' : 'Sync now'}
+        </button>
+      </div>
+      {msg && <p className="text-xs font-mono text-text-secondary mt-2">{msg}</p>}
+
+      {activities.length > 0 && (
+        <div className="mt-4 border-t border-border pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-ui font-semibold text-text-primary">Strava activity log</h4>
+            <span className="text-[10px] font-mono text-text-secondary">
+              {activities.filter(a => !a.matchedTrace).length} unmatched
+            </span>
+          </div>
+          <div className="max-h-60 overflow-auto">
+            <table className="w-full text-[11px] font-mono">
+              <thead className="text-text-secondary/70 text-left sticky top-0 bg-white">
+                <tr>
+                  <th className="py-1 pr-2 font-normal">started</th>
+                  <th className="py-1 pr-2 font-normal">activity</th>
+                  <th className="py-1 pr-2 font-normal">min</th>
+                  <th className="py-1 pr-2 font-normal">matched trace</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activities.map(a => (
+                  <tr key={a.id} className="border-t border-border/50">
+                    <td className="py-1 pr-2 text-text-secondary whitespace-nowrap">{a.start ? fmtWall(a.start) : '—'}</td>
+                    <td className="py-1 pr-2 text-text-primary truncate max-w-[120px]">{a.name || '(unnamed)'}</td>
+                    <td className="py-1 pr-2 text-text-secondary">{a.durationMin || '—'}</td>
+                    <td className="py-1 pr-1">
+                      {a.matchedTrace ? (
+                        <span className="flex items-center gap-1">
+                          <span className="text-success">{a.matchedTrace}</span>
+                          <button onClick={() => match(a.id, null)} disabled={busy}
+                            title="Detach this match" className="text-text-secondary hover:text-danger transition-colors">✕</button>
+                        </span>
+                      ) : (
+                        <select defaultValue="" disabled={busy}
+                          onChange={e => e.target.value && match(a.id, e.target.value)}
+                          className="bg-white border border-amber-300 rounded px-1 py-0.5 text-[10px] text-text-primary max-w-[210px] focus:outline-none">
+                          <option value="">— attach to trace…</option>
+                          {traces.filter(t => !t.matched).map(t => (
+                            <option key={t.trace} value={t.trace}>
+                              {fmtWall(t.start)} · {t.user} · {t.location}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] font-mono text-text-secondary/70 mt-2">
+            Unmatched = no manifest trace within ±5 min of the activity's start. Manual attach coming later.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Settings() {
   const { registry, setRegistry, appSettings, setAppSettings } = useApp();
   const [showNewForm, setShowNewForm] = useState(false);
@@ -273,6 +455,9 @@ export default function Settings() {
 
       {/* Slack report */}
       <SlackReportCard />
+
+      {/* Strava GPS sync */}
+      <StravaSyncCard />
 
       {/* Hours goal */}
       <div className="bg-white border border-border rounded-xl p-4">

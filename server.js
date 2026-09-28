@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url'
 import { createBackup } from './scripts/backup.js'
 import { startSync, getStatus, pollOnce } from './sync.js'
 import { buildReport, sendReport } from './slackReport.js'
+import * as strava from './strava.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -135,6 +136,46 @@ app.post('/api/slack-report', async (req, res) => {
   }
 })
 
+// ── Strava sync (cookie-based, no API) ───────────────────────────────
+app.get('/api/strava/status', (req, res) => {
+  res.json(strava.getStatus())
+})
+
+app.post('/api/strava/cookie', (req, res) => {
+  const { cookie } = req.body
+  if (typeof cookie !== 'string') return res.status(400).json({ error: 'Missing cookie' })
+  strava.setCookie(DATA, cookie)
+  res.json({ ok: true, status: strava.getStatus() })
+})
+
+app.get('/api/strava/activities', (req, res) => {
+  res.json(strava.getActivities(DATA))
+})
+
+app.get('/api/strava/traces', (req, res) => {
+  res.json(strava.getTraces(DATA))
+})
+
+app.post('/api/strava/match', (req, res) => {
+  const { activityId, trace } = req.body
+  if (!activityId) return res.status(400).json({ error: 'Missing activityId' })
+  try {
+    strava.setManualMatch(DATA, String(activityId), trace ? String(trace) : null)
+    res.json({ ok: true, status: strava.getStatus() })
+  } catch (e) {
+    res.status(400).json({ error: e.message })
+  }
+})
+
+app.post('/api/strava/sync-now', async (req, res) => {
+  try {
+    const matched = await strava.pollOnce(DATA)
+    res.json({ ok: true, matched, status: strava.getStatus() })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── Backups (snapshot data/ tied to git sha) ─────────────────────────
 app.post('/api/backup', (req, res) => {
   try {
@@ -236,4 +277,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(fileInfo('log.csv') ? `Log CSV → log.csv` : 'No log.csv — upload via Settings')
   console.log(fileInfo('manifest.csv') ? `Manifest → manifest.csv` : 'No manifest.csv — upload via Settings')
   startSync(DATA, { onCommit: () => console.log('[sync] committed new log/manifest from sheet') })
+  strava.startStravaSync(DATA, { onMatch: () => console.log('[strava] matched new GPS path(s) to traces') })
 })

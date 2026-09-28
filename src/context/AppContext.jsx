@@ -115,20 +115,31 @@ export function AppProvider({ children }) {
 
   useEffect(() => { loadFromServer() }, [loadFromServer])
 
-  // Auto-sync: poll status; when the server commits new sheet data, reload it.
+  // Auto-sync: poll status; when the server commits new sheet data OR matches a
+  // new Strava GPS path, reload so the open tab reflects it without a refresh.
   const [syncStatus, setSyncStatus] = useState(null)
   const lastSyncRef = useRef(null)
+  const lastStravaSyncRef = useRef(null)
   useEffect(() => {
     let cancelled = false
     async function poll() {
       try {
-        const s = await apiFetch('/api/sync-status').then(r => r.json())
+        const [s, st] = await Promise.all([
+          apiFetch('/api/sync-status').then(r => r.json()),
+          apiFetch('/api/strava/status').then(r => r.json()).catch(() => null),
+        ])
         if (cancelled) return
         setSyncStatus(s)
+        let needReload = false
         if (s.lastSyncAt && s.lastSyncAt !== lastSyncRef.current) {
-          if (lastSyncRef.current !== null) loadFromServer() // new data arrived → refresh
+          if (lastSyncRef.current !== null) needReload = true
           lastSyncRef.current = s.lastSyncAt
         }
+        if (st?.lastSyncAt && st.lastSyncAt !== lastStravaSyncRef.current) {
+          if (lastStravaSyncRef.current !== null) needReload = true
+          lastStravaSyncRef.current = st.lastSyncAt
+        }
+        if (needReload) loadFromServer() // new data/paths arrived → refresh
       } catch { /* ignore transient poll errors */ }
     }
     poll()
