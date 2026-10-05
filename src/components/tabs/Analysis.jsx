@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import {
-  LineChart, Line, BarChart, Bar, Legend,
+  BarChart, Bar, Legend,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { useApp } from '../../context/AppContext.jsx';
@@ -17,6 +17,7 @@ import {
   getFloorCoverage,
   getMovementByEnvironment,
 } from '../../utils/calculations.js';
+import CumulativeHoursChart from '../CumulativeHoursChart.jsx';
 
 const TOOLTIP_STYLE = {
   contentStyle: {
@@ -178,20 +179,7 @@ export default function Analysis() {
               Not enough data points yet
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={cumulative} margin={{ top: 4, right: 12, left: 0, bottom: 4 }}>
-                <CartesianGrid stroke="#F0F0F0" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date"
-                  tick={{ fill: '#555', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-                  tickLine={false} axisLine={{ stroke: '#E5E5E5' }}
-                  tickFormatter={d => d.slice(5)} />
-                <YAxis tick={{ fill: '#555', fontSize: 11, fontFamily: 'JetBrains Mono' }}
-                  tickLine={false} axisLine={false} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v) => [`${v.toFixed(2)} hrs`, 'Valid Hours']} />
-                <Line type="monotone" dataKey="hours" stroke="#CC0000" strokeWidth={2}
-                  dot={false} activeDot={{ r: 4, fill: '#CC0000' }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <CumulativeHoursChart data={cumulative} height={200} fontSize={11} />
           )}
         </Section>
 

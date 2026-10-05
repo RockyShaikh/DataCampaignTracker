@@ -269,15 +269,21 @@ export function getCumulativeValidHours(runs) {
   const valid = getValidRuns(runs).filter(r => r.date);
   valid.sort((a, b) => a.date - b.date);
 
+  // One point per local calendar day. `t` (local noon, ms) drives a time-scaled
+  // x-axis so gaps between collection days are drawn to scale.
   const points = [];
   let cumulative = 0;
   for (const run of valid) {
-    cumulative += run.duration;
-    const dateStr = run.date.toISOString().slice(0, 10);
+    // Clamp so a bad/negative duration can never make the total go down.
+    cumulative += Math.max(0, run.duration || 0);
+    const d = run.date;
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const hours = (cumulative * HAIRCUT) / 60;
     if (points.length && points[points.length - 1].date === dateStr) {
-      points[points.length - 1].hours = (cumulative * HAIRCUT) / 60;
+      points[points.length - 1].hours = hours;
     } else {
-      points.push({ date: dateStr, hours: (cumulative * HAIRCUT) / 60 });
+      const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12).getTime();
+      points.push({ t, date: dateStr, hours });
     }
   }
   return points;
